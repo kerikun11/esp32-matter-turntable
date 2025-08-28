@@ -1,6 +1,6 @@
 # ESP32 Matter Turntable - KERI's Lab
 
-ESP32で作るMatter対応回転台
+ESP32で作るMatter対応サーボ回転台 (Amazon Echo Show向け)
 
 ## 環境
 
