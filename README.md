@@ -5,9 +5,9 @@ ESP32で作るMatter対応サーボ回転台 (Amazon Echo Show向け)
 ## 環境
 
 - 開発環境
-  - [ESP-IDF](https://github.com/espressif/esp-idf) v5.4.2
-  - [ESP-Matter](https://github.com/espressif/esp-matter) v1.4
-  - [ESP32-Arduino](https://github.com/espressif/arduino-esp32) v3.2.1
+  - [ESP-IDF](https://github.com/espressif/esp-idf) v5.5.3
+  - [ESP-Matter](https://github.com/espressif/esp-matter) v1.4.0
+  - [ESP32-Arduino](https://github.com/espressif/arduino-esp32) v3.3.8
 - マイコンボード
   - Seeed Studio XIAO ESP32C6
 - サーボモーター
