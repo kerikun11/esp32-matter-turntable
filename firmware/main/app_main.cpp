@@ -4,6 +4,7 @@
  */
 #include <Arduino.h>
 #include <ArduinoOTA.h>
+#include <Preferences.h>
 
 #include "app_log.h"
 #include "button.h"
@@ -21,10 +22,59 @@ Button button_(CONFIG_APP_PIN_BUTTON);
 ServoMotor servo_;
 MatterSwitch matter_;
 
+static constexpr const char *kPrefsNamespace = "app";
+static constexpr const char *kPrefsSwitchOnKey = "switch_on";
+
+static bool load_switch_state() {
+  Preferences prefs;
+  if (!prefs.begin(kPrefsNamespace, true)) {
+    LOGI("[Prefs] Failed to open, using default ON");
+    return true;
+  }
+  bool on = prefs.getBool(kPrefsSwitchOnKey, true);
+  prefs.end();
+  LOGI("[Prefs] Restored switch: %s", on ? "ON" : "OFF");
+  return on;
+}
+
+static void save_switch_state(bool on) {
+  Preferences prefs;
+  if (!prefs.begin(kPrefsNamespace, false)) {
+    LOGI("[Prefs] Failed to save switch: %s", on ? "ON" : "OFF");
+    return;
+  }
+  prefs.putBool(kPrefsSwitchOnKey, on);
+  prefs.end();
+  LOGI("[Prefs] Saved switch: %s", on ? "ON" : "OFF");
+}
+
+static void set_servo_for_switch(bool on, float speed_dps) {
+  servo_.setTargetDegree(on ? 180.0f : 0.0f, speed_dps);
+}
+
+static const char *ota_error_name(ota_error_t error) {
+  switch (error) {
+    case OTA_AUTH_ERROR:
+      return "auth";
+    case OTA_BEGIN_ERROR:
+      return "begin";
+    case OTA_CONNECT_ERROR:
+      return "connect";
+    case OTA_RECEIVE_ERROR:
+      return "receive";
+    case OTA_END_ERROR:
+      return "end";
+    default:
+      return "unknown";
+  }
+}
+
 static void ota_begin() {
   ArduinoOTA.setMdnsEnabled(false);  // to avoid Matter mDNS conflict
+  ArduinoOTA.setTimeout(10000);
   ArduinoOTA.onStart([]() {
     auto cmd = ArduinoOTA.getCommand();
+    servo_.free();
     LOGI("[OTA] Start updating %s",
          cmd == U_FLASH ? "sketch"
                         : (cmd == U_SPIFFS ? "filesystem" : "unknown"));
@@ -34,17 +84,21 @@ static void ota_begin() {
     LOGI("[OTA] Progress: %u%% (%d/%d)", 100 * progress / total, progress,
          total);
   });
-  ArduinoOTA.onError([](ota_error_t error) { LOGI("[OTA] Error: %d", error); });
+  ArduinoOTA.onError([](ota_error_t error) {
+    LOGI("[OTA] Error: %s (%d)", ota_error_name(error), error);
+  });
   ArduinoOTA.begin();
 }
 
 void setup() {
   Serial.begin(CONFIG_MONITOR_BAUD);
 
-  matter_.begin();
+  bool switch_on = load_switch_state();
+  matter_.begin(switch_on);
 
   ota_begin();
   servo_.begin(CONFIG_APP_PIN_SERVO_CTRL, CONFIG_APP_PIN_SERVO_POWER);
+  set_servo_for_switch(switch_on, 0.0f);
 }
 
 void loop() {
@@ -59,16 +113,9 @@ void loop() {
   MatterSwitch::Event event;
   if (matter_.getEvent(event, 0)) {
     led_.blinkOnce(RgbLed::Color::Blue);
-    switch (event.type) {
-      case MatterSwitch::EventType::SwitchOn:
-        LOGI("[Event] Switch ON");
-        servo_.setTargetDegree(180, 90);
-        break;
-      case MatterSwitch::EventType::SwitchOff:
-        LOGI("[Event] Switch OFF");
-        servo_.setTargetDegree(0, 90);
-        break;
-    }
+    save_switch_state(event.switch_state);
+    LOGI("[Event] Switch %s", event.switch_state ? "ON" : "OFF");
+    set_servo_for_switch(event.switch_state, 180.0f);
   }
 
   /* Matter Decommission */

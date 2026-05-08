@@ -29,9 +29,9 @@ class ServoMotor {
       powered_ = false;
     }
 
-    current_ = target_ = 90.0f;
-    speed_ = 0.0f;
-    last_ms_ = 0;
+    current_ = target_ = start_ = 90.0f;
+    move_start_ms_ = 0;
+    move_duration_ms_ = 0;
     hold_until_ms_ = 0;
     state_ = State::Idle;
     return true;
@@ -46,28 +46,31 @@ class ServoMotor {
     }
     state_ = State::Idle;
     hold_until_ms_ = 0;
-    speed_ = 0.0f;
   }
 
   // speed_dps == 0: jump → hold 100ms → free()
-  // speed_dps  > 0: pre-hold 100ms → ramp → hold 100ms → free()
+  // speed_dps  > 0: pre-hold 100ms -> smooth ease-in/out -> hold 100ms -> free()
+  // speed_dps specifies the peak speed during the smooth motion.
   void setTargetDegree(float deg, float speed_dps = 0.0f) {
     target_ = clamp_(deg, 0.0f, 180.0f);
-    speed_ = fabsf(speed_dps);
+    float peak_speed_dps = fabsf(speed_dps);
     ensurePowerOn_();
 
     const uint32_t now = millis();
-    if (speed_ == 0.0f) {
+    if (peak_speed_dps == 0.0f) {
       current_ = target_;
       writeUs_(degToUs_(current_));
       state_ = State::EndHold;
       hold_until_ms_ = now + kHoldMs;
     } else {
       // pre-hold at current position
+      start_ = current_;
+      float distance = fabsf(target_ - start_);
+      move_duration_ms_ = (uint32_t)fmaxf(
+          1.0f, distance * kSmoothStepPeakSlope / peak_speed_dps * 1000.0f);
       writeUs_(degToUs_(current_));
       state_ = State::StartHold;
       hold_until_ms_ = now + kHoldMs;
-      last_ms_ = now;
     }
   }
 
@@ -79,7 +82,7 @@ class ServoMotor {
       case State::StartHold:
         if (passed_(now, hold_until_ms_)) {
           state_ = State::Moving;
-          last_ms_ = now;
+          move_start_ms_ = now;
         }
         return;
 
@@ -91,22 +94,18 @@ class ServoMotor {
         return;
 
       case State::Moving: {
-        if (speed_ <= 0.0f) return;
-        float dt = (now - last_ms_) / 1000.0f;
-        if (dt <= 0.0f) return;
-        last_ms_ = now;
-
-        float step = speed_ * dt;
-        float diff = target_ - current_;
-        if (fabsf(diff) <= step) {
+        uint32_t elapsed_ms = now - move_start_ms_;
+        if (elapsed_ms >= move_duration_ms_) {
           current_ = target_;
           writeUs_(degToUs_(current_));
-          speed_ = 0.0f;
           state_ = State::EndHold;
           hold_until_ms_ = now + kHoldMs;
           return;
         }
-        current_ += (diff > 0 ? step : -step);
+
+        float t = (float)elapsed_ms / (float)move_duration_ms_;
+        float eased = smoothStep_(t);
+        current_ = start_ + (target_ - start_) * eased;
         writeUs_(degToUs_(current_));
         return;
       }
@@ -130,6 +129,7 @@ class ServoMotor {
   static constexpr uint32_t kPowerOnDelayMs = 100;
   static constexpr uint32_t kPeriodUs = 1000000UL / kFreqHz;
   static constexpr uint32_t kMaxDuty = (1UL << kResBits) - 1;
+  static constexpr float kSmoothStepPeakSlope = 1.5f;
 
   // pins / power
   int pin_pwm_ = -1;
@@ -138,8 +138,9 @@ class ServoMotor {
   bool powered_ = false;
 
   // motion
-  float current_ = 90.0f, target_ = 90.0f, speed_ = 0.0f;
-  uint32_t last_ms_ = 0;
+  float current_ = 90.0f, target_ = 90.0f, start_ = 90.0f;
+  uint32_t move_start_ms_ = 0;
+  uint32_t move_duration_ms_ = 0;
   uint32_t hold_until_ms_ = 0;
   enum class State : uint8_t { Idle, StartHold, Moving, EndHold };
   State state_ = State::Idle;
@@ -153,6 +154,10 @@ class ServoMotor {
   }
   static inline bool passed_(uint32_t now, uint32_t deadline) {
     return deadline != 0 && (int32_t)(now - deadline) >= 0;
+  }
+  static inline float smoothStep_(float t) {
+    t = clamp_(t, 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
   }
 
   void writeUs_(uint16_t us) {

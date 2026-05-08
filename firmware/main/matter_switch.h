@@ -23,14 +23,8 @@
 
 class MatterSwitch {
  public:
-  enum class EventType : uint8_t {
-    SwitchOn,
-    SwitchOff,
-  };
-
   struct Event {
     uint64_t timestamp_ms;
-    EventType type;
     bool switch_state;
   };
 
@@ -183,7 +177,6 @@ class MatterSwitch {
 
     Event ev{};
     ev.timestamp_ms = (uint64_t)(esp_timer_get_time() / 1000ULL);
-    ev.type = switch_now ? EventType::SwitchOn : EventType::SwitchOff;
     ev.switch_state = switch_now;
 
     if (self->queue_) {
