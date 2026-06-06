@@ -9,6 +9,7 @@
 #include "app_log.h"
 #include "button.h"
 #include "matter_switch.h"
+#include "ota_utils.h"
 #include "rgb_led.h"
 #include "servo_motor.h"
 #include "servo_settings.h"
@@ -31,23 +32,6 @@ static void set_servo_for_switch(bool on, bool move_smoothly) {
   const float angle = on ? settings_.on_angle : settings_.off_angle;
   const float speed = move_smoothly ? settings_.max_speed_dps : 0.0f;
   servo_.setTargetDegree(angle, speed);
-}
-
-static const char *ota_error_name(ota_error_t error) {
-  switch (error) {
-    case OTA_AUTH_ERROR:
-      return "auth";
-    case OTA_BEGIN_ERROR:
-      return "begin";
-    case OTA_CONNECT_ERROR:
-      return "connect";
-    case OTA_RECEIVE_ERROR:
-      return "receive";
-    case OTA_END_ERROR:
-      return "end";
-    default:
-      return "unknown";
-  }
 }
 
 static void ota_begin() {
@@ -118,11 +102,15 @@ void loop() {
   /* Matter Decommission */
   if (button_.longHoldStarted()) led_.blinkOnce(RgbLed::Color::Magenta);
   if (button_.longPressed()) {
-    matter_.decommission();
+    if (matter_.isCommissioned()) {
+      matter_.decommission();
+    } else {
+      matter_.openCommissioningWindow();
+    }
   }
   if (!matter_.isCommissioned()) {
     static long last_pairing_log_ms_ = 0;
-    long now = millis();
+    const long now = millis();
     if (now - last_pairing_log_ms_ > 10000) {
       last_pairing_log_ms_ = now;
       matter_.printOnboarding();

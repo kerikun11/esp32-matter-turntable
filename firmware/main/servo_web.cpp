@@ -4,27 +4,13 @@
  */
 #include "servo_web.h"
 
-#include "app_log.h"
+#include "web_utils.h"
 
 namespace {
 
 constexpr char kWebPageTemplate[] =
 #include "servo_web_page.inc"
     ;
-
-void replaceTemplateValue(String &html, const char *key,
-                          const String &value) {
-  html.replace(key, value);
-}
-
-String escapeHtml(String value) {
-  value.replace("&", "&amp;");
-  value.replace("\"", "&quot;");
-  value.replace("'", "&#39;");
-  value.replace("<", "&lt;");
-  value.replace(">", "&gt;");
-  return value;
-}
 
 }  // namespace
 
@@ -45,9 +31,13 @@ bool ServoWeb::consumeRequestedSwitchState(bool &switch_on) {
   return true;
 }
 
-void ServoWeb::handleRoot() { sendPage(); }
+void ServoWeb::handleRoot() {
+  logRequest(server_);
+  sendPage();
+}
 
 void ServoWeb::handleSaveSettings() {
+  logRequest(server_);
   String device_name = server_.arg("device_name");
   device_name.trim();
   const int on_angle = server_.arg("on_angle").toInt();
@@ -60,7 +50,7 @@ void ServoWeb::handleSaveSettings() {
     status_message_ =
         "入力内容を確認してください。設定は保存されませんでした。";
     status_is_error_ = true;
-    return redirectRoot();
+    return redirectRoot(server_);
   }
 
   settings_.device_name = device_name;
@@ -71,15 +61,16 @@ void ServoWeb::handleSaveSettings() {
   status_message_ = "設定を保存しました。";
   status_is_error_ = false;
   LOGI("[Web] Settings saved");
-  redirectRoot();
+  redirectRoot(server_);
 }
 
 void ServoWeb::handleAction() {
+  logRequest(server_);
   const String state = server_.arg("state");
   if (state != "on" && state != "off") {
     status_message_ = "操作内容が不正です。";
     status_is_error_ = true;
-    return redirectRoot();
+    return redirectRoot(server_);
   }
 
   requested_switch_state_ = state == "on";
@@ -89,12 +80,7 @@ void ServoWeb::handleAction() {
       String("サーボを") + (requested_switch_state_ ? "ON" : "OFF") +
       "にしました。";
   status_is_error_ = false;
-  redirectRoot();
-}
-
-void ServoWeb::redirectRoot() {
-  server_.sendHeader("Location", "/", true);
-  server_.send(303, "text/plain", "");
+  redirectRoot(server_);
 }
 
 void ServoWeb::sendPage() {
@@ -117,7 +103,7 @@ String ServoWeb::buildPage() const {
   }
 
   replaceTemplateValue(html, "{{DEVICE_NAME}}",
-                       escapeHtml(settings_.device_name));
+                       escapeHtml(settings_.device_name.c_str()));
   replaceTemplateValue(html, "{{STATUS_NOTICE}}", status_notice);
   replaceTemplateValue(html, "{{SWITCH_ACTION}}",
                        settings_.switch_on ? "off" : "on");

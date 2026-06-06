@@ -29,7 +29,6 @@ class ServoWeb {
   void handleRoot();
   void handleSaveSettings();
   void handleAction();
-  void redirectRoot();
   void sendPage();
   String buildPage() const;
 };
