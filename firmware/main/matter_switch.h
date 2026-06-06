@@ -160,18 +160,23 @@ class MatterSwitch {
 
     const uint16_t ep_plugin = esp_matter::endpoint::get_id(self->ep_plugin_);
 
-    bool switch_now = false;
-    (void)self->readOnAttr_(self->ep_plugin_, switch_now);
+    if (path.mEndpointId != ep_plugin) return ESP_OK;
 
-    if (path.mEndpointId == ep_plugin) {
-      if (path.mCommandId == chip::app::Clusters::OnOff::Commands::On::Id)
-        switch_now = true;
-      else if (path.mCommandId == chip::app::Clusters::OnOff::Commands::Off::Id)
-        switch_now = false;
-      else if (path.mCommandId ==
-               chip::app::Clusters::OnOff::Commands::Toggle::Id)
-        switch_now = !switch_now;
+    bool switch_now = false;
+    if (path.mCommandId == chip::app::Clusters::OnOff::Commands::On::Id) {
+      switch_now = true;
+    } else if (path.mCommandId ==
+               chip::app::Clusters::OnOff::Commands::Off::Id) {
+      switch_now = false;
+    } else if (path.mCommandId ==
+               chip::app::Clusters::OnOff::Commands::Toggle::Id) {
+      if (!self->readOnAttr_(self->ep_plugin_, switch_now)) {
+        ESP_LOGE(TAG, "Failed to read OnOff attribute");
+        return ESP_FAIL;
+      }
+      switch_now = !switch_now;
     } else {
+      ESP_LOGW(TAG, "Unsupported command: 0x%08" PRIX32, path.mCommandId);
       return ESP_OK;
     }
 

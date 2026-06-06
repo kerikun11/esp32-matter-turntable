@@ -1,5 +1,11 @@
 # CMakeLists.txt for the esp-idf main component
-idf_component_register(SRC_DIRS "." INCLUDE_DIRS ".")
+idf_component_register(
+  SRCS
+    "app_main.cpp"
+    "servo_settings.cpp"
+    "servo_web.cpp"
+  INCLUDE_DIRS "."
+)
 
 # set_property(TARGET ${COMPONENT_LIB} PROPERTY CXX_STANDARD 17)
 # target_compile_options(${COMPONENT_LIB} PUBLIC "-DCHIP_HAVE_CONFIG_H")

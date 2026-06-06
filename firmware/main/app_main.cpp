@@ -4,13 +4,15 @@
  */
 #include <Arduino.h>
 #include <ArduinoOTA.h>
-#include <Preferences.h>
+#include <esp_wifi.h>
 
 #include "app_log.h"
 #include "button.h"
 #include "matter_switch.h"
 #include "rgb_led.h"
 #include "servo_motor.h"
+#include "servo_settings.h"
+#include "servo_web.h"
 
 #define CONFIG_APP_PIN_RGB_LED PIN_RGB_LED  //< 8 (defined in pins_arduino.h)
 #define CONFIG_APP_PIN_SERVO_CTRL 20
@@ -21,35 +23,14 @@ RgbLed led_(CONFIG_APP_PIN_RGB_LED);
 Button button_(CONFIG_APP_PIN_BUTTON);
 ServoMotor servo_;
 MatterSwitch matter_;
+ServoSettingsStore settings_store_;
+ServoSettings settings_;
+ServoWeb web_(settings_, settings_store_);
 
-static constexpr const char *kPrefsNamespace = "app";
-static constexpr const char *kPrefsSwitchOnKey = "switch_on";
-
-static bool load_switch_state() {
-  Preferences prefs;
-  if (!prefs.begin(kPrefsNamespace, true)) {
-    LOGI("[Prefs] Failed to open, using default ON");
-    return true;
-  }
-  bool on = prefs.getBool(kPrefsSwitchOnKey, true);
-  prefs.end();
-  LOGI("[Prefs] Restored switch: %s", on ? "ON" : "OFF");
-  return on;
-}
-
-static void save_switch_state(bool on) {
-  Preferences prefs;
-  if (!prefs.begin(kPrefsNamespace, false)) {
-    LOGI("[Prefs] Failed to save switch: %s", on ? "ON" : "OFF");
-    return;
-  }
-  prefs.putBool(kPrefsSwitchOnKey, on);
-  prefs.end();
-  LOGI("[Prefs] Saved switch: %s", on ? "ON" : "OFF");
-}
-
-static void set_servo_for_switch(bool on, float speed_dps) {
-  servo_.setTargetDegree(on ? 180.0f : 0.0f, speed_dps);
+static void set_servo_for_switch(bool on, bool move_smoothly) {
+  const float angle = on ? settings_.on_angle : settings_.off_angle;
+  const float speed = move_smoothly ? settings_.max_speed_dps : 0.0f;
+  servo_.setTargetDegree(angle, speed);
 }
 
 static const char *ota_error_name(ota_error_t error) {
@@ -71,8 +52,10 @@ static const char *ota_error_name(ota_error_t error) {
 
 static void ota_begin() {
   ArduinoOTA.setMdnsEnabled(false);  // to avoid Matter mDNS conflict
-  ArduinoOTA.setTimeout(10000);
+  ArduinoOTA.setTimeout(10000);  // 10s per chunk x 3 retries = 30s max stall
   ArduinoOTA.onStart([]() {
+    esp_wifi_set_ps(WIFI_PS_NONE);
+    esp_wifi_set_max_tx_power(78);  // 78 * 0.25 = 19.5 dBm
     auto cmd = ArduinoOTA.getCommand();
     servo_.free();
     LOGI("[OTA] Start updating %s",
@@ -93,18 +76,31 @@ static void ota_begin() {
 void setup() {
   Serial.begin(CONFIG_MONITOR_BAUD);
 
-  bool switch_on = load_switch_state();
-  matter_.begin(switch_on);
+  if (!settings_store_.begin()) {
+    LOGE("[Prefs] Failed to open settings");
+  }
+  settings_ = settings_store_.load();
+  matter_.begin(settings_.switch_on);
 
   ota_begin();
+  web_.begin();
   servo_.begin(CONFIG_APP_PIN_SERVO_CTRL, CONFIG_APP_PIN_SERVO_POWER);
-  set_servo_for_switch(switch_on, 0.0f);
+  set_servo_for_switch(settings_.switch_on, false);
 }
 
 void loop() {
   /* handle */
   yield();
   ArduinoOTA.handle();
+  web_.handle();
+  bool web_switch_on = false;
+  if (web_.consumeRequestedSwitchState(web_switch_on)) {
+    settings_.switch_on = web_switch_on;
+    settings_store_.saveSwitchState(web_switch_on);
+    matter_.setSwitchState(web_switch_on);
+    set_servo_for_switch(web_switch_on, true);
+    LOGI("[Web] Switch %s", web_switch_on ? "ON" : "OFF");
+  }
   led_.update();
   button_.update();
   servo_.handle();
@@ -113,9 +109,10 @@ void loop() {
   MatterSwitch::Event event;
   if (matter_.getEvent(event, 0)) {
     led_.blinkOnce(RgbLed::Color::Blue);
-    save_switch_state(event.switch_state);
+    settings_.switch_on = event.switch_state;
+    settings_store_.saveSwitchState(event.switch_state);
     LOGI("[Event] Switch %s", event.switch_state ? "ON" : "OFF");
-    set_servo_for_switch(event.switch_state, 180.0f);
+    set_servo_for_switch(event.switch_state, true);
   }
 
   /* Matter Decommission */
