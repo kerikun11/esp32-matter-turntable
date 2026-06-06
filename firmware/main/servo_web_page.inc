@@ -53,6 +53,11 @@ R"HTML(<!doctype html>
               <input name="device_name" type="text" maxlength="64" required value="{{DEVICE_NAME}}">
               <span class="mini">タイトルとブラウザのタブに表示されます。</span>
             </label>
+            <label class="wide">
+              <span>ホスト名</span>
+              <input name="hostname" type="text" maxlength="63" required value="{{HOSTNAME}}">
+              <span class="mini">この画面は<strong>http://&lt;ホスト名&gt;.local</strong>でアクセスできます。</span>
+            </label>
             <label>
               <span>OFFの角度</span>
               <input name="off_angle" type="number" min="0" max="180" required value="{{OFF_ANGLE}}">

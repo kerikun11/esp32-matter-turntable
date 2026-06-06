@@ -9,17 +9,20 @@
 struct ServoSettings {
   static constexpr const char *kPrefNamespace = "app";
   static constexpr const char *kPrefDeviceName = "device_name";
+  static constexpr const char *kPrefHostname = "hostname";
   static constexpr const char *kPrefOnAngle = "on_angle";
   static constexpr const char *kPrefOffAngle = "off_angle";
   static constexpr const char *kPrefMaxSpeed = "max_speed";
   static constexpr const char *kPrefSwitchOn = "switch_on";
 
   static constexpr const char *kDeviceNameDefault = "Matter Servo";
+  static constexpr const char *kHostnameDefault = "esp32-matter-servo";
   static constexpr int kOnAngleDefault = 180;
   static constexpr int kOffAngleDefault = 0;
   static constexpr int kMaxSpeedDefault = 180;
 
   String device_name = kDeviceNameDefault;
+  String hostname = kHostnameDefault;
   int on_angle = kOnAngleDefault;
   int off_angle = kOffAngleDefault;
   int max_speed_dps = kMaxSpeedDefault;

@@ -40,11 +40,14 @@ void ServoWeb::handleSaveSettings() {
   logRequest(server_);
   String device_name = server_.arg("device_name");
   device_name.trim();
+  String hostname = server_.arg("hostname");
+  hostname.trim();
   const int on_angle = server_.arg("on_angle").toInt();
   const int off_angle = server_.arg("off_angle").toInt();
   const int max_speed = server_.arg("max_speed").toInt();
 
   if (device_name.isEmpty() || device_name.length() > 64 ||
+      hostname.isEmpty() || hostname.length() > 63 ||
       on_angle < 0 || on_angle > 180 || off_angle < 0 ||
       off_angle > 180 || max_speed < 1 || max_speed > 720) {
     status_message_ =
@@ -54,10 +57,12 @@ void ServoWeb::handleSaveSettings() {
   }
 
   settings_.device_name = device_name;
+  settings_.hostname = hostname;
   settings_.on_angle = on_angle;
   settings_.off_angle = off_angle;
   settings_.max_speed_dps = max_speed;
   settings_store_.save(settings_);
+  hostname_updated_ = true;
   status_message_ = "設定を保存しました。";
   status_is_error_ = false;
   LOGI("[Web] Settings saved");
@@ -104,6 +109,8 @@ String ServoWeb::buildPage() const {
 
   replaceTemplateValue(html, "{{DEVICE_NAME}}",
                        escapeHtml(settings_.device_name.c_str()));
+  replaceTemplateValue(html, "{{HOSTNAME}}",
+                       escapeHtml(settings_.hostname.c_str()));
   replaceTemplateValue(html, "{{STATUS_NOTICE}}", status_notice);
   replaceTemplateValue(html, "{{SWITCH_ACTION}}",
                        settings_.switch_on ? "off" : "on");

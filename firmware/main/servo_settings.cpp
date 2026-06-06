@@ -15,6 +15,8 @@ ServoSettings ServoSettingsStore::load() {
   settings.device_name =
       prefs_.getString(ServoSettings::kPrefDeviceName,
                        ServoSettings::kDeviceNameDefault);
+  settings.hostname = prefs_.getString(ServoSettings::kPrefHostname,
+                                       ServoSettings::kHostnameDefault);
   settings.on_angle =
       prefs_.getInt(ServoSettings::kPrefOnAngle,
                     ServoSettings::kOnAngleDefault);
@@ -27,6 +29,7 @@ ServoSettings ServoSettingsStore::load() {
   settings.switch_on = prefs_.getBool(ServoSettings::kPrefSwitchOn, true);
 
   LOGI("[Prefs] device name: %s", settings.device_name.c_str());
+  LOGI("[Prefs] hostname: %s", settings.hostname.c_str());
   LOGI("[Prefs] ON angle: %d", settings.on_angle);
   LOGI("[Prefs] OFF angle: %d", settings.off_angle);
   LOGI("[Prefs] max speed: %d deg/s", settings.max_speed_dps);
@@ -36,6 +39,7 @@ ServoSettings ServoSettingsStore::load() {
 
 void ServoSettingsStore::save(const ServoSettings &settings) {
   prefs_.putString(ServoSettings::kPrefDeviceName, settings.device_name);
+  prefs_.putString(ServoSettings::kPrefHostname, settings.hostname);
   prefs_.putInt(ServoSettings::kPrefOnAngle, settings.on_angle);
   prefs_.putInt(ServoSettings::kPrefOffAngle, settings.off_angle);
   prefs_.putInt(ServoSettings::kPrefMaxSpeed, settings.max_speed_dps);

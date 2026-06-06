@@ -16,6 +16,8 @@ class ServoWeb {
   void begin();
   void handle();
   bool consumeRequestedSwitchState(bool &switch_on);
+  bool hostnameUpdated() const { return hostname_updated_; }
+  void clearHostnameUpdated() { hostname_updated_ = false; }
 
  private:
   ServoSettings &settings_;
@@ -23,6 +25,7 @@ class ServoWeb {
   WebServer server_{80};
   bool switch_state_pending_ = false;
   bool requested_switch_state_ = false;
+  bool hostname_updated_ = false;
   String status_message_;
   bool status_is_error_ = false;
 
