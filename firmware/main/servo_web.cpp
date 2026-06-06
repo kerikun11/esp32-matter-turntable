@@ -17,6 +17,15 @@ void replaceTemplateValue(String &html, const char *key,
   html.replace(key, value);
 }
 
+String escapeHtml(String value) {
+  value.replace("&", "&amp;");
+  value.replace("\"", "&quot;");
+  value.replace("'", "&#39;");
+  value.replace("<", "&lt;");
+  value.replace(">", "&gt;");
+  return value;
+}
+
 }  // namespace
 
 void ServoWeb::begin() {
@@ -39,11 +48,14 @@ bool ServoWeb::consumeRequestedSwitchState(bool &switch_on) {
 void ServoWeb::handleRoot() { sendPage(); }
 
 void ServoWeb::handleSaveSettings() {
+  String device_name = server_.arg("device_name");
+  device_name.trim();
   const int on_angle = server_.arg("on_angle").toInt();
   const int off_angle = server_.arg("off_angle").toInt();
   const int max_speed = server_.arg("max_speed").toInt();
 
-  if (on_angle < 0 || on_angle > 180 || off_angle < 0 ||
+  if (device_name.isEmpty() || device_name.length() > 64 ||
+      on_angle < 0 || on_angle > 180 || off_angle < 0 ||
       off_angle > 180 || max_speed < 1 || max_speed > 720) {
     status_message_ =
         "入力内容を確認してください。設定は保存されませんでした。";
@@ -51,6 +63,7 @@ void ServoWeb::handleSaveSettings() {
     return redirectRoot();
   }
 
+  settings_.device_name = device_name;
   settings_.on_angle = on_angle;
   settings_.off_angle = off_angle;
   settings_.max_speed_dps = max_speed;
@@ -103,6 +116,8 @@ String ServoWeb::buildPage() const {
     status_notice += "</div>";
   }
 
+  replaceTemplateValue(html, "{{DEVICE_NAME}}",
+                       escapeHtml(settings_.device_name));
   replaceTemplateValue(html, "{{STATUS_NOTICE}}", status_notice);
   replaceTemplateValue(html, "{{SWITCH_ACTION}}",
                        settings_.switch_on ? "off" : "on");

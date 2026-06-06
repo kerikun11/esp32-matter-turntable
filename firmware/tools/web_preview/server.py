@@ -15,6 +15,7 @@ STATE_LOCK = Lock()
 
 @dataclass
 class PreviewState:
+    device_name: str = "Matter Servo"
     on_angle: int = 180
     off_angle: int = 0
     max_speed: int = 180
@@ -53,6 +54,7 @@ def consume_state() -> PreviewState:
 def render() -> bytes:
     state = consume_state()
     values = {
+        "{{DEVICE_NAME}}": escape(state.device_name, quote=True),
         "{{STATUS_NOTICE}}": status_notice(
             state.status_message, state.status_is_error
         ),
@@ -130,6 +132,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
         self.redirect_root()
 
     def handle_settings(self, form: dict[str, list[str]]) -> None:
+        device_name = form.get("device_name", [""])[0].strip()
         try:
             on_angle = int(form.get("on_angle", ["-1"])[0])
             off_angle = int(form.get("off_angle", ["-1"])[0])
@@ -140,7 +143,9 @@ class PreviewHandler(BaseHTTPRequestHandler):
             max_speed = 0
 
         if (
-            not 0 <= on_angle <= 180
+            not device_name
+            or len(device_name.encode("utf-8")) > 64
+            or not 0 <= on_angle <= 180
             or not 0 <= off_angle <= 180
             or not 1 <= max_speed <= 720
         ):
@@ -150,6 +155,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
             )
             return
 
+        STATE.device_name = device_name
         STATE.on_angle = on_angle
         STATE.off_angle = off_angle
         STATE.max_speed = max_speed

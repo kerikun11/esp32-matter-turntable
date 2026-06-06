@@ -3,7 +3,7 @@ R"HTML(<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Matter Servo</title>
+  <title>{{DEVICE_NAME}}</title>
   <style>
     :root{--panel:#fff;--line:#dbe3ef;--ink:#17212b;--muted:#64748b;--accent:#2563eb;--good:#166534;--bad:#991b1b;--shadow:0 10px 30px rgba(15,23,42,.08)}
     *{box-sizing:border-box}
@@ -34,7 +34,7 @@ R"HTML(<!doctype html>
   <main>
     <section class="hero">
       <div>
-        <h1><a href="/" style="color:inherit;text-decoration:none">Matter Servo</a></h1>
+        <h1><a href="/" style="color:inherit;text-decoration:none">{{DEVICE_NAME}}</a></h1>
         <p>サーボの位置と動作速度を設定します。</p>
       </div>
       <form method="post" action="/action">
@@ -48,6 +48,11 @@ R"HTML(<!doctype html>
       <div class="body">
         <form method="post" action="/settings">
           <div class="grid">
+            <label class="wide">
+              <span>デバイス名</span>
+              <input name="device_name" type="text" maxlength="64" required value="{{DEVICE_NAME}}">
+              <span class="mini">タイトルとブラウザのタブに表示されます。</span>
+            </label>
             <label>
               <span>OFFの角度</span>
               <input name="off_angle" type="number" min="0" max="180" required value="{{OFF_ANGLE}}">
