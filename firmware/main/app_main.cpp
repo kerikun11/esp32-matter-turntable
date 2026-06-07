@@ -4,6 +4,7 @@
  */
 #include <Arduino.h>
 #include <ArduinoOTA.h>
+#include <esp_event.h>
 #include <esp_netif.h>
 #include <esp_wifi.h>
 #include <mdns.h>
@@ -33,6 +34,7 @@ String mdns_hostname_;
 uint32_t mdns_ipv4_address_ = 0;
 unsigned long last_mdns_sync_attempt_ms_ = 0;
 esp_err_t last_mdns_error_ = ESP_OK;
+volatile bool dhcp_restart_requested_ = false;
 
 static void set_servo_for_switch(bool on, bool move_smoothly) {
   const float angle = on ? settings_.on_angle : settings_.off_angle;
@@ -62,6 +64,45 @@ static void ota_begin() {
     LOGI("[OTA] Error: %s (%d)", ota_error_name(error), error);
   });
   ArduinoOTA.begin();
+}
+
+static void ip_event_handler(void *, esp_event_base_t event_base,
+                             int32_t event_id, void *) {
+  if (event_base == IP_EVENT && event_id == IP_EVENT_STA_LOST_IP) {
+    dhcp_restart_requested_ = true;
+  }
+}
+
+static void register_ipv4_recovery() {
+  const esp_err_t err = esp_event_handler_register(
+      IP_EVENT, IP_EVENT_STA_LOST_IP, ip_event_handler, nullptr);
+  if (err != ESP_OK) {
+    LOGW("[Net] Failed to register IPv4 recovery: %s", esp_err_to_name(err));
+  }
+}
+
+static void restart_dhcp_if_requested() {
+  if (!dhcp_restart_requested_) return;
+  dhcp_restart_requested_ = false;
+
+  esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (!netif) return;
+
+  const esp_err_t stop_err = esp_netif_dhcpc_stop(netif);
+  if (stop_err != ESP_OK &&
+      stop_err != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED) {
+    LOGW("[Net] Failed to stop DHCP client: %s", esp_err_to_name(stop_err));
+    return;
+  }
+
+  const esp_err_t start_err = esp_netif_dhcpc_start(netif);
+  if (start_err == ESP_OK ||
+      start_err == ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED) {
+    LOGI("[Net] DHCP client restarted");
+  } else {
+    LOGW("[Net] Failed to restart DHCP client: %s",
+         esp_err_to_name(start_err));
+  }
 }
 
 static void sync_additional_mdns_hostname(bool force) {
@@ -142,6 +183,7 @@ void setup() {
   }
   settings_ = settings_store_.load();
   matter_.begin(settings_.switch_on);
+  register_ipv4_recovery();
 
   ota_begin();
   web_.begin();
@@ -152,6 +194,7 @@ void setup() {
 void loop() {
   /* handle */
   yield();
+  restart_dhcp_if_requested();
   ArduinoOTA.handle();
   web_.handle();
   if (web_.hostnameUpdated()) {
