@@ -183,6 +183,9 @@ void setup() {
   }
   settings_ = settings_store_.load();
   matter_.begin(settings_.switch_on);
+  if (esp_wifi_set_ps(WIFI_PS_NONE) != ESP_OK) {
+    LOGW("[Wi-Fi] Failed to disable power save");
+  }
   register_ipv4_recovery();
 
   ota_begin();
