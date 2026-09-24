@@ -15,8 +15,8 @@ STATE_LOCK = Lock()
 
 @dataclass
 class PreviewState:
-    device_name: str = "Matter Servo"
-    hostname: str = "esp32-matter-servo"
+    device_name: str = "Matter Turntable"
+    hostname: str = "esp32-matter-turntable"
     on_angle: int = 180
     off_angle: int = 0
     max_speed: int = 180
@@ -34,7 +34,7 @@ def read_template() -> str:
     suffix = ')HTML"'
     if not source.startswith(prefix) or not source.endswith(suffix):
         raise RuntimeError(f"Unexpected template format: {TEMPLATE}")
-    return source[len(prefix) : -len(suffix)]
+    return source[len(prefix): -len(suffix)]
 
 
 def status_notice(message: str, is_error: bool) -> str:

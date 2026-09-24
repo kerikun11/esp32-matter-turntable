@@ -15,8 +15,8 @@ struct ServoSettings {
   static constexpr const char *kPrefMaxSpeed = "max_speed";
   static constexpr const char *kPrefSwitchOn = "switch_on";
 
-  static constexpr const char *kDeviceNameDefault = "Matter Servo";
-  static constexpr const char *kHostnameDefault = "esp32-matter-servo";
+  static constexpr const char *kDeviceNameDefault = "Matter Turntable";
+  static constexpr const char *kHostnameDefault = "esp32-matter-turntable";
   static constexpr int kOnAngleDefault = 180;
   static constexpr int kOffAngleDefault = 0;
   static constexpr int kMaxSpeedDefault = 180;
