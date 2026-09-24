@@ -2,6 +2,7 @@
 idf_component_register(
   SRCS
     "app_main.cpp"
+    "network_health.cpp"
     "servo_settings.cpp"
     "servo_web.cpp"
   INCLUDE_DIRS "."
