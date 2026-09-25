@@ -34,7 +34,7 @@ ESP32で作るMatter対応サーボ回転台 (Amazon Echo Show向け)
 - サーボモーター
   - SG90互換品
 - ピンアサイン
-  - ソースコード [app_config.h](firmware/main/app_config.h) を参照。
+  - ソースコード [app_config.h](firmware/main/board/app_config.h) を参照。
 
 ビルド・書き込み・OTA更新は[ファームウェア開発ガイド](firmware/README.md)を参照。
 
@@ -48,3 +48,7 @@ ESP32で作るMatter対応サーボ回転台 (Amazon Echo Show向け)
 ## ライセンス
 
 - LGPL v2.1
+
+## 開発
+
+[開発手順](docs/development.md)・[構成](docs/architecture.md)・[コーディングルール](docs/coding-rules.md)を参照してください。

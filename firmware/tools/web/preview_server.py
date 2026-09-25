@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Device-less preview of the on-device web UI (main/web/index.html)."""
+"""Device-less preview of the on-device web UI (web/index.html)."""
 
+import argparse
 from dataclasses import dataclass, field, replace
 import hashlib
 import json
@@ -15,11 +16,32 @@ from urllib.parse import parse_qs, urlsplit
 
 
 FIRMWARE_ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE = FIRMWARE_ROOT / "main/web/index.html"
+TEMPLATE = FIRMWARE_ROOT / "web/index.html"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_web import build
+sys.path.insert(0, str(FIRMWARE_ROOT / "components/device_common/tools/web"))
+from build_web import build, source_files
 STATE_LOCK = Lock()
 HOSTNAME_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
+DEFAULT_PORT = 8000
+
+
+def port_number(value: str) -> int:
+    try:
+        port = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("port must be an integer") from error
+    if not 1 <= port <= 65535:
+        raise argparse.ArgumentTypeError("port must be between 1 and 65535")
+    return port
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Preview the turntable Web UI")
+    parser.add_argument(
+        "-p", "--port", type=port_number, default=DEFAULT_PORT,
+        help=f"TCP port to listen on (default: {DEFAULT_PORT})",
+    )
+    return parser.parse_args()
 
 
 @dataclass
@@ -118,7 +140,7 @@ def parse_int(form, key):
 
 class PreviewHandler(BaseHTTPRequestHandler):
     def send_html(self):
-        plain, compressed = assets(TEMPLATE.stat().st_mtime_ns)
+        plain, compressed = assets(tuple(p.stat().st_mtime_ns for p in source_files(TEMPLATE)))
         header = self.headers.get("Accept-Encoding", "")
         gzip = encoding_quality(header, "gzip") > 0
         if not gzip and encoding_quality(header, "identity") == 0:
@@ -277,6 +299,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    address = ("127.0.0.1", 8000)
+    args = parse_args()
+    address = ("127.0.0.1", args.port)
     print(f"Web UI preview: http://{address[0]}:{address[1]}")
     ThreadingHTTPServer(address, PreviewHandler).serve_forever()
