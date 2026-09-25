@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" media="(prefers-color-scheme: light)" href="https://api.iconify.design/mdi/cog.svg?color=%23000000">
+  <link rel="icon" media="(prefers-color-scheme: dark)" href="https://api.iconify.design/mdi/cog.svg?color=%23ffffff">
+  <title>Matter Turntable</title>
+  <style>
+    :root{--panel:#fff;--line:#dbe3ef;--ink:#17212b;--muted:#64748b;--accent:#2563eb;--good:#166534;--bad:#991b1b;--on:#16a34a;--off:#dc2626;--soft:#fbfdff;--shadow:0 10px 30px rgba(15,23,42,.08)}
+    *{box-sizing:border-box}
+    [hidden]{display:none!important}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#f8fbff,#eef3f9) fixed;color:var(--ink);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+    main{max-width:720px;margin:0 auto;padding:16px}
+    footer{padding:0 0 16px;text-align:center;color:var(--muted);font-size:12px}
+    .hero,.fold{overflow:hidden;border:1px solid var(--line);border-radius:20px;background:var(--panel);box-shadow:var(--shadow)}
+    .hero{padding:24px}.hero h1{margin:0;font-size:28px;line-height:1.2}
+    .topbar{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:14px;margin-top:20px;align-items:stretch}
+    .card{padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--soft)}
+    .dial-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center}
+    .dial{width:150px;height:auto;display:block}
+    .dial .track{fill:none;stroke:var(--line);stroke-width:10;stroke-linecap:round}
+    .dial .needle{stroke:var(--ink);stroke-width:4;stroke-linecap:round;transition:transform .25s linear;transform-origin:80px 80px}
+    .dial .hub{fill:var(--ink)}
+    .dial .mark{stroke-width:4;stroke-linecap:round}.dial .mark.on{stroke:var(--on)}.dial .mark.off{stroke:var(--off)}
+    .label{display:block;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em}
+    .value{font-size:26px;font-weight:750;line-height:1.2}
+    .sub{color:var(--muted);font-size:13px}
+    .legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--muted)}
+    .legend i{display:inline-block;width:10px;height:4px;margin-right:4px;border-radius:2px;vertical-align:middle}
+    .switch-card{display:grid;align-content:center;gap:10px}
+    form{margin:0}
+    .toggle-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;padding:10px 14px;border:none;border-radius:999px;font-size:17px;font-weight:750;cursor:pointer}
+    .toggle-btn:before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor}
+    .toggle-btn.on{background:#e8f7ee;color:var(--good)}.toggle-btn.off{background:#fdecec;color:var(--bad)}
+    .badge{display:inline-block;padding:2px 10px;border-radius:999px;background:#eef2f7;color:var(--muted);font-size:12px;font-weight:700}
+    .badge.moving{background:#dbeafe;color:#1e40af}
+    .fold{margin-top:14px}
+    .fold summary{display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;padding:16px 18px;font-size:17px;font-weight:700}
+    .fold summary::-webkit-details-marker{display:none}.fold summary span{color:var(--muted);font-size:12px;font-weight:500}.fold .body{padding:0 20px 20px}
+    .stack{display:grid;gap:16px}
+    .section{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+    .section-title{margin:0;font-size:16px}.section-description{margin:2px 0 0;color:var(--muted);font-size:13px}
+    .settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .setting-card{display:grid;gap:6px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--soft)}
+    .setting-card>span:first-child{font-weight:650}.wide{grid-column:1/-1}
+    .mini{color:var(--muted);font-size:13px;font-weight:400}
+    .range-row{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:10px;align-items:center}
+    input:not([type=range]):not([type=hidden]){width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font:inherit}
+    input[type=range]{width:100%;accent-color:var(--accent)}
+    button{border:0;border-radius:12px;padding:12px 16px;background:var(--accent);color:#fff;font:700 15px system-ui;cursor:pointer}
+    button.secondary{background:#e2e8f0;color:var(--ink)}
+    button.small{padding:8px 12px;font-size:13px}
+    button.danger{background:var(--bad)}
+    button.pending,button.toggle-btn.pending{background:#ffedd5;color:#9a3412;cursor:wait}
+    button:disabled{cursor:not-allowed;opacity:.65}
+    .row,.inline-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .group{display:flex;flex-wrap:wrap;gap:10px}
+    .save-row{padding:16px;border:1px solid #bfdbfe;border-radius:14px;background:#eff6ff}.save-row .mini{margin:0;color:#1e40af}.save-row button{min-width:150px}
+    .info-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}.info-table th,.info-table td{padding:9px 12px;border:1px solid var(--line);text-align:left;vertical-align:top;overflow-wrap:anywhere}.info-table th{width:36%;background:var(--soft);color:var(--muted);font-weight:600}.info-table td{white-space:pre-line}
+    .fabric-list{display:grid;gap:12px}.fabric-entry{display:grid;gap:10px}.fabric-entry form{justify-self:end}
+    .pairing{padding:14px 16px;border:1px dashed #a78bfa;border-radius:14px;background:#f5f3ff}.pairing code{font-size:20px;font-weight:750;letter-spacing:.06em}
+    #preview{margin:0 0 14px}
+    .notice{margin-top:14px;padding:14px 18px;border:1px solid #f59e0b;border-radius:12px;background:#fef3c7;color:#92400e;font-size:14px}
+    .status{margin-top:14px;padding:14px 18px;border:1px solid;border-radius:12px;font-weight:650}.status.success{border-color:#86efac;background:#f0fdf4;color:var(--good)}.status.error{border-color:#fca5a5;background:#fef2f2;color:var(--bad)}
+    @media(max-width:640px){main{padding:12px 10px 24px}.hero{padding:18px}.hero h1{font-size:24px}.topbar{grid-template-columns:1fr}.settings-grid{grid-template-columns:1fr}.wide{grid-column:auto}.row{flex-direction:column;align-items:stretch}.save-row button{width:100%}.fold summary{padding:16px}.fold .body{padding:0 16px 16px}.fabric-entry form{justify-self:stretch}.fabric-entry button{width:100%}}
+  </style>
+</head>
+<body>
+  <noscript><div class="notice">この画面の操作にはJavaScriptを有効にしてください。</div></noscript>
+  <main aria-busy="true">
+    <div id="preview" class="notice" hidden>PC確認用プレビューです。操作しても実機の設定は変更されません。</div>
+    <section class="hero">
+      <h1><a id="device-name" href="/" style="color:inherit;text-decoration:none">Matter Turntable</a></h1>
+      <div class="topbar">
+        <section class="card dial-card" aria-label="サーボの現在角度">
+          <svg class="dial" viewBox="0 0 160 92" role="img" aria-labelledby="angle-value">
+            <path class="track" d="M10 80A70 70 0 0 1 150 80"/>
+            <line id="mark-off" class="mark off" x1="80" y1="80" x2="80" y2="80"/>
+            <line id="mark-on" class="mark on" x1="80" y1="80" x2="80" y2="80"/>
+            <line id="needle" class="needle" x1="80" y1="80" x2="22" y2="80"/>
+            <circle class="hub" cx="80" cy="80" r="6"/>
+          </svg>
+          <div>
+            <span class="label">現在の角度</span>
+            <div class="value"><span id="angle-value">—</span>°</div>
+            <div class="sub"><span id="motion" class="badge">停止中</span></div>
+            <div class="legend"><span><i style="background:var(--off)"></i>OFF <span id="legend-off">—</span>°</span><span><i style="background:var(--on)"></i>ON <span id="legend-on">—</span>°</span></div>
+          </div>
+        </section>
+        <section class="card switch-card">
+          <span class="label">スイッチ</span>
+          <form class="toggle-form" method="post" action="/action">
+            <input type="hidden" name="state" value="">
+            <button disabled class="toggle-btn pending">読込中…</button>
+          </form>
+          <span id="matter-badge" class="sub">Matter：—</span>
+        </section>
+      </div>
+    </section>
+
+    <div id="reboot" class="notice" hidden>再起動しています。数秒待ってからページを再読み込みしてください。</div>
+    <div id="status" class="status" role="status" hidden></div>
+
+    <details id="settings-pane" class="fold">
+      <summary>設定<span>タップして開閉</span></summary>
+      <div class="body">
+        <form id="settings-form" class="stack" method="post" action="/settings">
+          <div>
+            <h2 class="section-title">基本設定</h2>
+            <p class="section-description">以下の項目は、画面下の「設定を保存」でまとめて反映されます。角度は「試す」で保存前に動きを確認できます。</p>
+          </div>
+          <div class="settings-grid">
+            <label class="setting-card wide">
+              <span>デバイス名</span>
+              <input name="device_name" type="text" maxlength="64" required value="">
+              <span class="mini">タイトルとブラウザのタブに表示されます。</span>
+            </label>
+            <label class="setting-card wide">
+              <span>ホスト名</span>
+              <input name="hostname" type="text" maxlength="63" required pattern="[A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?" autocapitalize="off" spellcheck="false" value="">
+              <span class="mini">英数字とハイフンのみ。この画面は<strong>http://&lt;ホスト名&gt;.local</strong>でアクセスできます。</span>
+            </label>
+            <div class="setting-card">
+              <span>OFFの角度</span>
+              <div class="range-row">
+                <input type="range" min="0" max="180" data-sync="off_angle" aria-label="OFFの角度">
+                <input name="off_angle" type="number" min="0" max="180" required inputmode="numeric">
+              </div>
+              <div class="inline-row"><span class="mini">0〜180度</span><button type="button" class="secondary small" data-try="off_angle">試す</button></div>
+            </div>
+            <div class="setting-card">
+              <span>ONの角度</span>
+              <div class="range-row">
+                <input type="range" min="0" max="180" data-sync="on_angle" aria-label="ONの角度">
+                <input name="on_angle" type="number" min="0" max="180" required inputmode="numeric">
+              </div>
+              <div class="inline-row"><span class="mini">0〜180度</span><button type="button" class="secondary small" data-try="on_angle">試す</button></div>
+            </div>
+            <label class="setting-card wide">
+              <span>最大速度（度/秒）</span>
+              <input name="max_speed" type="number" min="1" max="720" required inputmode="numeric">
+              <span class="mini">1〜720度/秒。加減速付きで動作するときの最高速度です。</span>
+            </label>
+          </div>
+          <div class="row save-row">
+            <p class="mini">デバイス名、ホスト名、角度、速度をまとめて保存します。</p>
+            <button disabled>設定を保存</button>
+          </div>
+        </form>
+
+        <section class="section" aria-labelledby="move-title">
+          <h2 id="move-title" class="section-title">試し動作</h2>
+          <p class="section-description">指定した角度にサーボを動かします。ON/OFFの状態と設定は変わりません。</p>
+          <form id="move-form" method="post" action="/move">
+            <div class="range-row">
+              <input type="range" min="0" max="180" value="90" data-sync="angle" aria-label="移動先の角度">
+              <input name="angle" type="number" min="0" max="180" value="90" required inputmode="numeric">
+            </div>
+            <div class="group" style="margin-top:10px"><button disabled>この角度に移動</button></div>
+          </form>
+        </section>
+
+        <section class="section" aria-labelledby="info-title">
+          <h2 id="info-title" class="section-title">デバイス情報</h2>
+          <p id="info-status" class="section-description" role="status">設定を開くと最新情報を取得します。</p>
+          <table class="info-table" aria-labelledby="info-title"><tbody id="device-info"></tbody></table>
+        </section>
+
+        <section class="section" aria-labelledby="matter-title">
+          <h2 id="matter-title" class="section-title">Matter</h2>
+          <h3 class="section-title">Fabric一覧 <span id="fabric-count"></span></h3>
+          <p class="section-description">このデバイスが登録されているMatterネットワークです。</p>
+          <div id="fabric-list" class="fabric-list"></div>
+          <h3 class="section-title">ペアリング</h3>
+          <p id="commissioning-status" class="section-description" role="status">状態：未取得</p>
+          <div id="pairing" class="pairing" hidden>
+            <div class="mini">ペアリングコード</div>
+            <code id="manual-code"></code>
+            <div class="mini"><a id="qr-link" href="#" target="_blank" rel="noopener">QRコードを表示</a></div>
+          </div>
+          <form method="post" action="/matter">
+            <input type="hidden" name="action" value="commission">
+            <button id="commissioning-start" disabled>ペアリング受付を開始</button>
+          </form>
+          <p class="section-description">5分間、新しいMatterコントローラーへの登録を受け付けます。</p>
+          <p id="matter-result" class="section-description" role="status"></p>
+        </section>
+
+        <section class="section" aria-labelledby="system-title">
+          <h2 id="system-title" class="section-title">システム</h2>
+          <div class="row">
+            <p class="section-description">デバイスを再起動します。ON/OFFの状態と設定は保持されます。</p>
+            <form method="post" action="/reboot" data-confirm="デバイスを再起動しますか？">
+              <button class="secondary">再起動</button>
+            </form>
+          </div>
+        </section>
+      </div>
+    </details>
+  </main>
+  <footer>©2026 KERI's Lab</footer>
+<script>
+(() => {
+  const qrBase = 'https://project-chip.github.io/connectedhomeip/qrcode.html?data=';
+  let submitting = true;
+  let loaded = false;
+  let infoGeneration = 0;
+  let infoLoading = false;
+  let infoKnown = false;
+  let commissioningOpen = false;
+  let fabricSignature = null;
+  let pollTimer = 0;
+  let stateLoading = false;
+  let formDirty = false;
+  const get = (id) => document.getElementById(id);
+  const buttons = () => document.querySelectorAll('button');
+  const labels = new Map(Array.from(buttons(), (button) => [button, button.textContent]));
+  const settingsForm = get('settings-form');
+  const notice = (message, error = false) => {
+    const status = get('status');
+    status.textContent = message;
+    status.className = 'status ' + (error ? 'error' : 'success');
+    status.hidden = !message;
+  };
+
+  function point(angle, radius) {
+    const rad = Math.PI * Math.min(180, Math.max(0, angle)) / 180;
+    return [80 - radius * Math.cos(rad), 80 - radius * Math.sin(rad)];
+  }
+  function setMark(id, angle) {
+    const [x1, y1] = point(angle, 62);
+    const [x2, y2] = point(angle, 78);
+    const mark = get(id);
+    mark.setAttribute('x1', x1); mark.setAttribute('y1', y1);
+    mark.setAttribute('x2', x2); mark.setAttribute('y2', y2);
+  }
+
+  function validate(state) {
+    for (const key of ['switch', 'moving', 'powered', 'commissioned', 'commissioning_open', 'error', 'reboot']) {
+      if (typeof state[key] !== 'boolean') throw new Error('Invalid state');
+    }
+    for (const key of ['device_name', 'hostname', 'message']) {
+      if (typeof state[key] !== 'string') throw new Error('Invalid state');
+    }
+    for (const key of ['angle', 'target_angle', 'on_angle', 'off_angle', 'max_speed']) {
+      if (!Number.isFinite(state[key])) throw new Error('Invalid state');
+    }
+  }
+
+  function renderLive(state) {
+    get('angle-value').textContent = state.angle;
+    get('needle').style.transform = 'rotate(' + Math.min(180, Math.max(0, state.angle)) + 'deg)';
+    get('motion').textContent = state.moving ? (state.target_angle + '°へ移動中') : '停止中';
+    get('motion').classList.toggle('moving', state.moving);
+    setMark('mark-on', state.on_angle);
+    setMark('mark-off', state.off_angle);
+    get('legend-on').textContent = state.on_angle;
+    get('legend-off').textContent = state.off_angle;
+    get('matter-badge').textContent = 'Matter：' + (state.commissioning_open ? 'ペアリング受付中'
+      : state.commissioned ? '登録済み' : '未登録');
+    if (!submitting) {
+      const form = document.querySelector('.toggle-form');
+      const button = form.querySelector('button');
+      form.elements.state.value = state.switch ? 'off' : 'on';
+      button.classList.toggle('on', state.switch);
+      button.classList.toggle('off', !state.switch);
+      button.textContent = state.switch ? 'ON' : 'OFF';
+    }
+    document.title = state.device_name;
+    get('device-name').textContent = state.device_name;
+  }
+
+  function fillSettings(state) {
+    for (const key of ['device_name', 'hostname', 'on_angle', 'off_angle']) {
+      settingsForm.elements[key].value = state[key];
+    }
+    settingsForm.elements.max_speed.value = state.max_speed;
+    syncRanges(settingsForm);
+    formDirty = false;
+  }
+
+  function render(state) {
+    validate(state);
+    loaded = true;
+    buttons().forEach((button) => {
+      button.classList.remove('pending');
+      button.removeAttribute('aria-busy');
+      button.textContent = labels.get(button) || button.dataset.label;
+      button.disabled = !!state.reboot;
+    });
+    submitting = !!state.reboot;
+    renderLive(state);
+    if (!formDirty || !state.error) fillSettings(state);
+    get('preview').hidden = !state.preview;
+    get('reboot').hidden = !state.reboot;
+    notice(state.message, state.error);
+    document.querySelector('main').removeAttribute('aria-busy');
+    updateMatterButtons();
+    schedulePoll(state.moving ? 300 : 3000);
+  }
+
+  async function request(url, options = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch(url, {
+        ...options, headers: {Accept: 'application/json'},
+        signal: controller.signal, cache: 'no-store'
+      });
+      if (!response.ok) throw new Error('Request failed');
+      return await response.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  function syncRanges(root) {
+    root.querySelectorAll('input[data-sync]').forEach((range) => {
+      const number = root.querySelector('input[name="' + range.dataset.sync + '"]');
+      if (number && number.value !== '') range.value = number.value;
+    });
+  }
+  document.querySelectorAll('input[data-sync]').forEach((range) => {
+    const number = range.form.elements[range.dataset.sync];
+    range.addEventListener('input', () => { number.value = range.value; number.dispatchEvent(new Event('input', {bubbles: true})); });
+    number.addEventListener('input', () => { if (number.value !== '') range.value = number.value; });
+  });
+  settingsForm.addEventListener('input', () => { formDirty = true; });
+
+  async function submit(action, data, pending, isMatter) {
+    submitting = true;
+    clearTimeout(pollTimer);
+    if (isMatter) {
+      ++infoGeneration;
+      infoKnown = false;
+      get('matter-result').textContent = '';
+    }
+    buttons().forEach((item) => { item.disabled = true; });
+    pending.forEach((item) => {
+      item.classList.add('pending');
+      item.textContent = '送信中…';
+      item.setAttribute('aria-busy', 'true');
+    });
+    notice('');
+    try {
+      const state = await request(action, {method: 'POST', body: new URLSearchParams(data)});
+      if (action === '/settings' && !state.error) formDirty = false;
+      render(state);
+      if (isMatter) {
+        get('matter-result').textContent = state.message;
+        await loadDeviceInfo();
+      }
+    } catch (error) {
+      /* A lost response does not mean the operation failed. Never resend it
+         automatically or restore the pre-operation state as if it were current. */
+      pending.forEach((item) => {
+        item.textContent = '結果未確認';
+        item.removeAttribute('aria-busy');
+      });
+      const message = '操作結果を確認できませんでした。ページを再読み込みして状態を確認してください。';
+      notice(message, true);
+      if (isMatter) get('matter-result').textContent = message;
+    }
+  }
+
+  document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (form.method.toLowerCase() !== 'post') return;
+    event.preventDefault();
+    if (submitting) return;
+    const action = form.getAttribute('action');
+    const isMatter = action === '/matter';
+    if (isMatter && !infoKnown) return;
+    if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) return;
+    const data = new FormData(form);
+    const button = event.submitter;
+    if (button && button.name) data.append(button.name, button.value);
+    submit(action, data, [button].filter(Boolean), isMatter);
+  });
+
+  document.querySelectorAll('button[data-try]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (submitting) return;
+      const input = settingsForm.elements[button.dataset.try];
+      if (!input.reportValidity()) return;
+      submit('/move', new URLSearchParams({angle: input.value}), [button], false);
+    });
+  });
+
+  function schedulePoll(delay) {
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(poll, delay);
+  }
+  async function poll() {
+    if (document.hidden || submitting || stateLoading) return schedulePoll(3000);
+    stateLoading = true;
+    try {
+      const state = await request('/state');
+      if (!loaded) return render(state);
+      validate(state);
+      if (!submitting) {
+        renderLive(state);
+        if (!formDirty) fillSettings(state);
+        if (state.message) notice(state.message, state.error);
+      }
+      schedulePoll(state.moving ? 300 : 3000);
+    } catch (error) {
+      schedulePoll(5000);
+    } finally {
+      stateLoading = false;
+    }
+  }
+
+  async function load() {
+    submitting = true;
+    buttons().forEach((button) => { button.disabled = true; });
+    try { render(await request('/state')); }
+    catch (error) {
+      notice('状態を取得できませんでした。自動で再取得します。', true);
+      submitting = false;
+      schedulePoll(5000);
+    }
+  }
+
+  function infoRow(list, label, value) {
+    const row = document.createElement('tr');
+    const term = document.createElement('th');
+    const description = document.createElement('td');
+    term.scope = 'row';
+    term.textContent = label;
+    description.textContent = value;
+    row.append(term, description);
+    list.append(row);
+  }
+  function formatDuration(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor(seconds % 86400 / 3600);
+    const minutes = Math.floor(seconds % 3600 / 60);
+    return (days ? days + '日 ' : '') + hours + '時間 ' + minutes + '分';
+  }
+  const kib = (bytes) => (bytes / 1024).toFixed(1) + ' KiB';
+  function updateMatterButtons() {
+    document.querySelectorAll('form[action="/matter"] button').forEach((button) => {
+      button.disabled = submitting || !infoKnown ||
+        (button.id === 'commissioning-start' && commissioningOpen);
+    });
+  }
+  function renderFabrics(fabrics) {
+    const signature = JSON.stringify(fabrics);
+    if (signature === fabricSignature) return;
+    const list = get('fabric-list');
+    list.replaceChildren();
+    for (const fabric of fabrics) {
+      const entry = document.createElement('div');
+      entry.className = 'fabric-entry';
+      const table = document.createElement('table');
+      table.className = 'info-table';
+      table.setAttribute('aria-label', 'Fabric #' + fabric.index);
+      const card = document.createElement('tbody');
+      table.append(card);
+      infoRow(card, 'Fabric #' + fabric.index, fabric.label || 'ラベルなし');
+      infoRow(card, 'Fabric ID', fabric.fabric_id);
+      infoRow(card, 'Node ID', fabric.node_id);
+      infoRow(card, 'Vendor ID', fabric.vendor_id);
+      const form = document.createElement('form');
+      form.method = 'post';
+      form.action = '/matter';
+      form.dataset.confirm = 'Fabric #' + fabric.index + '（' +
+        (fabric.label || 'ラベルなし') + '）を削除しますか？\n' +
+        'このFabricに属するコントローラーから操作できなくなります。Wi-Fi接続は維持されます。' +
+        (fabrics.length === 1 ? '\n最後のFabricです。削除後、再登録にはペアリング受付の開始が必要です。' : '');
+      for (const [name, value] of Object.entries({
+        action: 'remove', index: fabric.index, fabric_id: fabric.fabric_id,
+        node_id: fabric.node_id, vendor_id: fabric.vendor_id
+      })) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.append(input);
+      }
+      const button = document.createElement('button');
+      button.type = 'submit';
+      button.className = 'danger';
+      button.dataset.label = 'このFabricを削除';
+      button.textContent = button.dataset.label;
+      button.setAttribute('aria-label', 'Fabric #' + fabric.index + 'を削除');
+      form.append(button);
+      entry.append(table, form);
+      list.append(entry);
+    }
+    if (!fabrics.length) list.textContent = '登録済みのFabricはありません。';
+    fabricSignature = signature;
+  }
+  async function loadDeviceInfo() {
+    const generation = ++infoGeneration;
+    infoLoading = true;
+    infoKnown = false;
+    updateMatterButtons();
+    try {
+      const info = await request('/device-info');
+      if (generation !== infoGeneration) return;
+      if (typeof info.commissioning_open !== 'boolean' || !Array.isArray(info.fabrics)) {
+        throw new Error('Invalid device info');
+      }
+      const list = get('device-info');
+      list.replaceChildren();
+      infoRow(list, 'IPv4アドレス', info.ipv4 || '未取得');
+      infoRow(list, 'IPv6アドレス', info.ipv6.join('\n') || '未取得');
+      infoRow(list, 'MACアドレス', info.mac || '未取得');
+      infoRow(list, 'Wi-Fi', info.connected
+        ? info.ssid + '（' + info.rssi + ' dBm, ch ' + info.channel + '）' : '未接続');
+      infoRow(list, 'ファームウェア', info.project_name + ' ' + info.version + '\n' + info.build_date);
+      infoRow(list, 'ESP-IDF', info.idf_version);
+      infoRow(list, '稼働時間', formatDuration(info.uptime_seconds));
+      infoRow(list, '前回の起動要因', info.reset_reason);
+      infoRow(list, '空きメモリ', kib(info.free_heap) + '（最小 ' + kib(info.min_free_heap) +
+        '、最大ブロック ' + kib(info.largest_free_block) + '）');
+      get('fabric-count').textContent = '（' + info.fabrics.length + '件）';
+      renderFabrics(info.fabrics);
+      commissioningOpen = info.commissioning_open;
+      infoKnown = true;
+      get('commissioning-status').textContent = commissioningOpen
+        ? '状態：受付中（最大5分間）' : '状態：受付停止中';
+      get('pairing').hidden = !commissioningOpen;
+      get('manual-code').textContent = info.manual_code.replace(/^(\d{4})(\d{3})(\d{4})$/, '$1-$2-$3');
+      get('qr-link').href = qrBase + encodeURIComponent(info.qr_payload);
+      get('info-status').textContent = '設定を開いている間、5秒ごとに更新します。';
+    } catch (error) {
+      if (generation !== infoGeneration) return;
+      get('commissioning-status').textContent = '状態：取得できませんでした';
+      get('info-status').textContent = '最新情報を取得できませんでした。自動で再取得します。';
+    } finally {
+      if (generation === infoGeneration) {
+        infoLoading = false;
+        updateMatterButtons();
+      }
+    }
+  }
+  setInterval(() => {
+    if (get('settings-pane').open && !document.hidden && !submitting && !infoLoading) loadDeviceInfo();
+  }, 5000);
+  get('settings-pane').addEventListener('toggle', () => {
+    if (get('settings-pane').open) loadDeviceInfo();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !submitting) schedulePoll(0);
+  });
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    load();
+    if (get('settings-pane').open) loadDeviceInfo();
+  });
+  load();
+})();
+</script>
+</body>
+</html>

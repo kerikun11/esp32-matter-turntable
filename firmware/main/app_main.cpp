@@ -2,137 +2,51 @@
  * SPDX-License-Identifier: LGPL-2.1
  * @copyright 2025 Ryotaro Onuki
  */
-#include <Arduino.h>
-#include <ArduinoOTA.h>
-#include <esp_wifi.h>
+#include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <nvs_flash.h>
 
-#include "app_log.h"
-#include "button.h"
-#include "matter_switch.h"
-#include "network_health.h"
-#include "ota_utils.h"
-#include "rgb_led.h"
-#include "servo_motor.h"
-#include "servo_settings.h"
-#include "servo_web.h"
+#include <cstdio>
 
-#define CONFIG_APP_PIN_RGB_LED PIN_RGB_LED  //< 8 (defined in pins_arduino.h)
-#define CONFIG_APP_PIN_SERVO_CTRL 20
-#define CONFIG_APP_PIN_SERVO_POWER 19
-#define CONFIG_APP_PIN_BUTTON BOOT_PIN
+#include "ota_service.h"
+#include "turntable_controller.h"
 
-RgbLed led_(CONFIG_APP_PIN_RGB_LED);
-Button button_(CONFIG_APP_PIN_BUTTON);
-ServoMotor servo_;
-MatterSwitch matter_;
-ServoSettingsStore settings_store_;
-ServoSettings settings_;
-ServoWeb web_(settings_, settings_store_);
-NetworkHealth network_;
+namespace {
 
-static void set_servo_for_switch(bool on, bool move_smoothly) {
-  const float angle = on ? settings_.on_angle : settings_.off_angle;
-  const float speed = move_smoothly ? settings_.max_speed_dps : 0.0f;
-  servo_.setTargetDegree(angle, speed);
+void initNvs() {
+  esp_err_t err = nvs_flash_init();
+  if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
+      err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    ESP_ERROR_CHECK(nvs_flash_erase());
+    err = nvs_flash_init();
+  }
+  ESP_ERROR_CHECK(err);
 }
 
-static void ota_begin() {
-  ArduinoOTA.setHostname(settings_.hostname.c_str());
-  ArduinoOTA.setMdnsEnabled(false);  // to avoid Matter mDNS conflict
-  ArduinoOTA.setTimeout(10000);  // 10s per chunk x 3 retries = 30s max stall
-  ArduinoOTA.onStart([]() {
-    esp_wifi_set_ps(WIFI_PS_NONE);
-    esp_wifi_set_max_tx_power(78);  // 78 * 0.25 = 19.5 dBm
-    auto cmd = ArduinoOTA.getCommand();
-    servo_.free();
-    LOGI("[OTA] Start updating %s",
-         cmd == U_FLASH ? "sketch"
-                        : (cmd == U_SPIFFS ? "filesystem" : "unknown"));
-  });
-  ArduinoOTA.onEnd([]() { LOGI("[OTA] End"); });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    LOGI("[OTA] Progress: %u%% (%d/%d)", 100 * progress / total, progress,
-         total);
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    LOGI("[OTA] Error: %s (%d)", ota_error_name(error), error);
-  });
-  ArduinoOTA.begin();
-}
+}  // namespace
 
-void setup() {
-  Serial.begin(CONFIG_MONITOR_BAUD);
+TurntableController app;
 
-  if (!settings_store_.begin()) {
-    LOGE("[Prefs] Failed to open settings");
-  }
-  settings_ = settings_store_.load();
-  matter_.begin(settings_.switch_on);
-  network_.begin(settings_.hostname);
+extern "C" void app_main() {
+  // app_log.h writes with plain fprintf(stdout, ...); without this, stdout
+  // is fully buffered here (not line-buffered), so log lines can sit
+  // unflushed for a long time.
+  setvbuf(stdout, nullptr, _IOLBF, 1024);
 
-  ota_begin();
-  web_.begin();
-  servo_.begin(CONFIG_APP_PIN_SERVO_CTRL, CONFIG_APP_PIN_SERVO_POWER);
-  set_servo_for_switch(settings_.switch_on, false);
-}
+  initNvs();
+  // As early as possible after a fresh OTA update, tell the bootloader the
+  // new image booted successfully so it won't roll back to the previous one.
+  confirmOtaBootIfPending();
 
-void loop() {
-  /* handle */
-  yield();
-  network_.handle();
-  ArduinoOTA.handle();
-  web_.handle();
-  if (web_.hostnameUpdated()) {
-    ArduinoOTA.setHostname(settings_.hostname.c_str());
-    network_.setHostname(settings_.hostname);
-    web_.clearHostnameUpdated();
-  }
-  bool web_switch_on = false;
-  if (web_.consumeRequestedSwitchState(web_switch_on)) {
-    settings_.switch_on = web_switch_on;
-    settings_store_.saveSwitchState(web_switch_on);
-    matter_.setSwitchState(web_switch_on);
-    set_servo_for_switch(web_switch_on, true);
-    LOGI("[Web] Switch %s", web_switch_on ? "ON" : "OFF");
-  }
-  led_.update();
-  button_.update();
-  servo_.handle();
+  /* set log level */
+  esp_log_level_set("esp_matter_attribute", ESP_LOG_WARN);
+  esp_log_level_set("esp_matter_command", ESP_LOG_WARN);
+  esp_log_level_set("ROUTE_HOOK", ESP_LOG_WARN);
 
-  /* handle event */
-  MatterSwitch::Event event;
-  if (matter_.getEvent(event, 0)) {
-    led_.blinkOnce(RgbLed::Color::Blue);
-    settings_.switch_on = event.switch_state;
-    settings_store_.saveSwitchState(event.switch_state);
-    LOGI("[Event] Switch %s", event.switch_state ? "ON" : "OFF");
-    set_servo_for_switch(event.switch_state, true);
-  }
-
-  /* Matter Decommission */
-  if (button_.longHoldStarted()) led_.blinkOnce(RgbLed::Color::Magenta);
-  if (button_.longPressed()) {
-    if (matter_.isCommissioned()) {
-      matter_.decommission();
-    } else {
-      matter_.openCommissioningWindow();
-    }
-  }
-  if (!matter_.isCommissioned()) {
-    static long last_pairing_log_ms_ = 0;
-    const long now = millis();
-    if (now - last_pairing_log_ms_ > 10000) {
-      last_pairing_log_ms_ = now;
-      matter_.printOnboarding();
-    }
-  }
-
-  /* LED Status */
-  if (!matter_.isCommissioned()) {
-    led_.setBackground(RgbLed::Color::Magenta);
-  } else if (!matter_.isConnected()) {
-    led_.setBackground(RgbLed::Color::Red);
-  } else {
-    led_.setBackground(RgbLed::Color::White);
+  app.begin();
+  while (true) {
+    app.handle();
+    vTaskDelay(1);
   }
 }
