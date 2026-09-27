@@ -39,6 +39,8 @@ bool TurntableController::begin() {
   }
   moveServoForSwitch(settings_.switch_on, false);
 
+  // Must run before Matter starts Wi-Fi.
+  if (NetworkHealth::prepareWifi() != ESP_OK) LOGW("[Net] Wi-Fi preparation failed");
   if (!matter_.begin(settings_.switch_on)) {
     LOGE("[Matter] Failed to start");
     return false;
